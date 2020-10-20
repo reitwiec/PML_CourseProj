@@ -1,0 +1,177 @@
+---
+title: "PML Course Project"
+output: html_document
+---
+  
+```{r}
+library(caret)
+library(rpart)
+library(randomForest)
+```
+
+
+```{r}
+training_data_url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testing_data_url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+```
+
+```{r}
+training_data <- read.csv(url(training_data_url ))
+testing_data <- read.csv(url(testing_data_url ))
+```
+```{r}
+dim(training_data)
+```
+```{r}
+dim(testing_data)
+```
+
+# Data Cleaning
+
+Here we perform analysis on the data
+
+```{r}
+head(training_data)
+```
+
+By observing the data we discovered the following   
+* A lot of values are NA  
+* Coupe of variables are 0 and hence we will remove them
+
+```{r}
+nzv <- nearZeroVar(training_data)
+
+#removing near zero valriable from dataset
+train_data <- training_data[,-nzv]
+test_data <- testing_data[,-nzv]
+
+```
+
+```{r}
+dim(train_data)
+```
+```{r}
+dim(test_data)
+```
+
+By removing near zero variable, we reduce 60 predictors.
+
+```{r}
+na_value_column <- sapply(train_data, function(x) mean(is.na(x))) > 0.95
+
+train_data <- train_data[,na_value_column == FALSE]
+test_data <- test_data[,na_value_column == FALSE]
+```
+```{r}
+dim(train_data)
+```
+```{r}
+dim(test_data)
+```
+By removing NA values, we reduce 41 predictors.
+
+```{r}
+head(train_data)
+```
+All NA values were removed 
+
+Here some column have no values like user_name , raw_timestamp_1 , raw_timestamp_2 , etc. So we will remove them 
+
+```{r}
+train_data<- train_data[, 8:59]
+test_data<- test_data[, 8:59]
+
+```
+
+```{r}
+dim(train_data)
+```
+```{r}
+dim(test_data)
+```
+
+at the end of cleaning we get 52 predictors out of 160.
+We have successfully completed the data cleaning process.
+
+# Data Partition
+
+Now, we will part "trai_data" into 2 parts   
+* Training data(60%)   
+* Test data(40%)   
+
+```{r}
+inTrain<- createDataPartition(train_data$classe, p=0.6, list=FALSE)
+training<- train_data[inTrain,]
+testing<- train_data[-inTrain,]
+```
+
+```{r}
+dim(training)
+```
+
+```{r}
+dim(testing)
+```
+
+# Model Construction 
+
+Now, we will make a model using cross validation    
+
+## Decision Tree 
+
+```{r}
+library(rattle)
+
+DT_model <- train(classe ~ . , data = training , method = "rpart")
+
+fancyRpartPlot(DT_model$finalModel)
+```
+
+Now, We will predict on testing data and observe the output
+
+```{r}
+#Prediction   
+DT_prediction<- predict(DT_model, testing)
+confusionMatrix(table(DT_prediction, testing$classe))
+```
+From the Decision Tree Model we get the prediction accuracy is 49% which is not upto satisfactory level.   
+
+So we will apply another method
+
+## Random Forest 
+
+```{r}
+#Fit the model   
+RF_model<- train(classe ~. , data=training, method= "rf", ntree=100)
+
+```
+
+```{r}
+RF_prediction<- predict(RF_model, training)
+RF_cm<-confusionMatrix(table(RF_prediction, training$classe))
+RF_cm
+```
+We get a 100% accuracy, which is the best level of accuracy.   
+
+now we will predict on testing data.
+
+```{r}
+#Prediction  
+RF_prediction<- predict(RF_model, testing)
+RF_cm<-confusionMatrix(table(RF_prediction, testing$classe))
+RF_cm
+```
+
+From Random Forest we get 99.2% accuracy which is close to perfect accuracy level.
+
+# Conclusion
+
+we conclude that, Random Forest is accurate than Decision Tree and get upto 99% of accuracy level.   
+
+Now, We will test on "test_data" which is "Out of Sample"
+
+```{r}
+prediction_test<- predict(RF_model, test_data)
+prediction_test
+
+```
